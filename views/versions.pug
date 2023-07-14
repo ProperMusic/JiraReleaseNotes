@@ -1,0 +1,39 @@
+extends default
+
+block content
+  header
+    form(action='/get-versions' method='GET')
+      input.home-input(value = `${username || ''}` autofocus='' placeholder='atlassian email' type='text' name='username')
+      input.home-input(value = `${password|| ''}` autofocus='' placeholder='atlassian api key' type='password' name='password')
+    
+
+  .container
+    if !data 
+      .result-count
+        p No results found for your query:
+        
+        
+    else
+      ul.search-results
+        
+        each version in data.versions
+          li 
+            a.something(href=`./get-issues?username=${username}&password=${password}&version_id=${version.id}`) #{version.name} 
+  
+        //-   li.news-article
+        //-     #{version.id}
+        //-     #{version.name}
+            //- a.title-link(target='_blank' rel='noreferrer noopener' href=`${story.url}`)
+            //-   h3.title #{story.title}
+            //- .metadata #{story.points} points by
+            //-   |
+            //-   |
+            //-   span.author #{story.author}
+            //-   |
+            //-   | on
+            //-   |
+            //-   time.created-date #{story.created_at}
+            //-   |
+            //-   |
+            //-   a.comments(target='_blank' rel='noreferrer noopener' href=`https://news.ycombinator.com/item?id=${story.objectID}`) #{story.num_comments} comments
+
