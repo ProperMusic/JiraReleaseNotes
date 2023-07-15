@@ -18,7 +18,7 @@ block content
         
         each version in data.versions
           li 
-            a.something(href=`./get-issues?username=${username}&password=${password}&version_id=${version.id}`) #{version.name} 
+            a.something(href=`./get-issues?username=${username}&password=${password}&version_id=${version.id}&version_name=${version.name}`) #{version.name} 
   
         //-   li.news-article
         //-     #{version.id}
