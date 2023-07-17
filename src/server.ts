@@ -236,9 +236,9 @@ async function get_issues(username : string, password : string , version_id : nu
         n.summary       = issue.fields.summary;
         n.type_name     = issue.fields.issuetype.name;
         n.labels        = issue.fields.labels.sort();
-        if (issue.fields.labels != null) {
-            console.log(`${issue.key} labels : ${issue.fields.labels} ${n.labels}`);
-        }
+        // if (issue.fields.labels != null) {
+        //     console.log(`${issue.key} labels : ${issue.fields.labels} ${n.labels}`);
+        // }
         n.status        = issue.fields.status.name;
 
         n.release_notes = "";
