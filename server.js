@@ -1,69 +1,71 @@
-const express = require('express');
-const app =express();
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+// const express = require('express');
+const express_1 = __importDefault(require("express"));
+const app = (0, express_1.default)();
 const axios = require('axios');
 const path = require('path');
-
-app.use(express.static(path.join(__dirname, 'public')));
+const { release } = require('os');
+const SERVER_PORT = 8000;
+app.use(express_1.default.static(path.join(__dirname, 'public')));
+//app.set('views', path.join(__dirname, 'build', 'views'));
 app.set('view engine', 'pug');
-
+// app.locals.basedir = path.join(__dirname, 'build');
+console.log(`dir name is :  [${__dirname}]`);
 app.get('/', (req, res) => {
     res.render('home', {
         title: 'Enter Details'
-    })
+    });
 });
-
-
-
-async function get_versions(username, password) {
-    
-    try {
-        const response = await axios.get('https://utopia-music.atlassian.net/rest/api/3/project/PD',
-        {
-            
-            withCredentials: true,
-            headers: {'X-Requested-With': 'XMLHttpRequest'},
-            auth : {
-                username: username,
-                password: password
-            }
-        });
-        // console.log(response.data);
-       
-        
-        
-        return response.data;
-    } catch (e) {
-        console.log(e.cause);
-        return e;
-        
-    }
-    
- }
-
-app.get('/get-versions', async (req, res)=> {
-
+function get_versions(username, password) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const response = yield axios.get('https://utopia-music.atlassian.net/rest/api/3/project/PD', {
+                withCredentials: true,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                auth: {
+                    username: username,
+                    password: password
+                }
+            });
+            // console.log(response.data);
+            return response.data;
+        }
+        catch (e) {
+            console.log(e.cause);
+            return e;
+        }
+    });
+}
+app.get('/get-versions', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const username = req.query.username;
     const password = req.query.password;
-
     if (!username || !password) {
         res.redirect(302, '/');
         return;
     }
-
-    const results = await get_versions(username, password);
+    const results = yield get_versions(username, password);
     // res.send('hello');
-    res.status(200).render(
-        'versions', {
-            title: 'Versions',
-            data: results,
-            username,
-            password
-        }
-    );
-});
-
+    res.status(200).render('versions', {
+        title: 'Versions',
+        data: results,
+        username,
+        password
+    });
+}));
 function get_custom_field(fields, field_name) {
-    
     if (field_name in fields && fields[field_name] != null) {
         for (let k of fields[field_name].content) {
             if (k.type == 'paragraph') {
@@ -71,21 +73,16 @@ function get_custom_field(fields, field_name) {
                     if (k0.type == 'text' && k0.text != '') {
                         return k0.text;
                     }
-
                 }
             }
-            
         }
     }
     return "";
 }
-
 class Issue {
-    constructor(key) {
-        this.key = key;
+    constructor(_key) {
         this.summary = "";
         this.release_notes = "";
-        this.children = {};
         this.labels = [];
         this.links = [];
         this.status = "";
@@ -94,9 +91,23 @@ class Issue {
         this.parent_type_name = "";
         this.parent_summary = "";
         this.parent_status = "";
+        this.category = "";
+        this.key = _key;
+        this.children = new Map();
     }
 }
-
+// type DataGroup = {
+//     [key : string] : Issue
+// }
+class IssueData {
+    constructor() {
+        this.issues = new Map();
+        this.out_groups = new Map();
+        this.out_epics = new Map();
+        this.out_stories = new Map();
+        this.out_others = new Map();
+    }
+}
 // function add_parent_fake (group, key, summary, type_name = "") {
 //     if (!(key in group)) {
 //         group[key] = {
@@ -108,328 +119,352 @@ class Issue {
 //             links : [],
 //             status : "",
 //             type_name : type_name
-
 //         };
-        
 //     }
 // }
-
 function add_parent(group, issue) {
-    if (!(issue.key in group)) {
-        group[issue.key] = issue;
-        
+    if (!group.has(issue.key)) {
+        group.set(issue.key, issue);
     }
 }
-
 function add_child(parent, child) {
     // console.log(`parent = ${parent}, child = ${child}`);
     // if (!('children' in parent)) {
     //     console.error("parent does not contain CHILDREN");
     //     console.log(parent);
     // }
-    if (!(child.key in parent.children)) {
-        parent.children[child.key] = child;
+    if (!(parent.children.has(child.key))) {
+        parent.children.set(child.key, child);
     }
 }
-
-
-async function get_issues(username, password, version_id, version_name) {
-    let data = {};
-
-    const response = await axios.get(
-        "https://utopia-music.atlassian.net/rest/api/3/search",
-        {
-        withCredentials: true,
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-        auth: {
-            username: username,
-            password: password,
-        },
-        params: {
-            jql: `project = 'PD' AND FixVersion = ${version_id}`,
-        },
-        }
-    );
-    //   console.log(rsp.data.issues[0]);
-    data.issues = {};
-
-    data.output = {
-        groups: {},
-        epics: {},
-        stories: {},
-        others : {}
-    };
-
-    for (let issue of response.data.issues) {
-        let n = new Issue(issue.key);
-
-        n.summary       = issue.fields.summary;
-        n.type_name     = issue.fields.issuetype.name,
-        n.labels        = issue.fields.labels.sort();
-        n.status        = issue.fields.status.name,
-        
-        n.release_notes = get_custom_field(issue.fields, 'customfield_10303');
-
-        if (!n.release_notes) {
-            n.release_notes = get_custom_field(issue.fields, 'customfield_10302');    
-        }
-
-        if ('parent' in issue.fields && issue.fields.parent != null) {
-            n.parent_key        = issue.fields.parent.key;
-            n.parent_type_name  = issue.fields.parent.fields.issuetype.name;
-            n.parent_summary    = issue.fields.parent.fields.summary;
-            n.parent_status     = issue.fields.parent.fields.status.name;
-        }
-
-        if (issue.fields.issuelinks.length > 0) {
-            for (let li of issue.fields.issuelinks) {
-            if ("outwardIssue" in li) {
-                n.links.push(li.outwardIssue.key);
-            } else if ("inwardIssue" in li) {
-                n.links.push(li.inwardIssue.key);
+function sort_keys(A, B) {
+    let a = split_key(A).id;
+    let b = split_key(B).id;
+    if (a < b)
+        return -1;
+    if (a > b)
+        return 1;
+    return 0;
+}
+function split_key(code) {
+    let elems = code.split("-");
+    let p = elems[0];
+    let v = Number(elems[1]);
+    return { project: p, id: v };
+}
+function get_issues(username, password, version_id, version_name) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let data = new IssueData();
+        const response = yield axios.get("https://utopia-music.atlassian.net/rest/api/3/search", {
+            withCredentials: true,
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+            auth: {
+                username: username,
+                password: password,
+            },
+            params: {
+                jql: `project = 'PD' AND FixVersion = ${version_id}`,
+                expand: "names",
+            },
+        });
+        //   console.log(rsp.data.issues[0]);
+        // data.issues = {};
+        // data.output = {
+        //     groups: {},
+        //     epics: {},
+        //     stories: {},
+        //     others : {}
+        // };
+        let release_notes_fields = [];
+        let category_field = "";
+        for (let k in response.data.names) {
+            let v = response.data.names[k];
+            if (v.toUpperCase() === "RELEASE NOTES") {
+                release_notes_fields.push(k);
+                console.log(`release notes: ${v} ${k}`);
             }
+            else if (v.toUpperCase() === "CATEGORY") {
+                category_field = k;
             }
         }
-        data.issues[n.key] = n;
-    }
-
-    //add categories
-    for (let k in data.issues) {
-        let issue = data.issues[k];
-
-        if (issue.type != 'Epic' && issue.labels.length > 0) {
-            for (let label of issue.labels) {
-                let group = new Issue(label);
-                group.summary = "";
-                
-                add_parent(data.output.groups, group);
-                add_child(data.output.groups[label], issue);
+        for (let issue of response.data.issues) {
+            // console.log(issue);
+            let n = new Issue(issue.key);
+            n.summary = issue.fields.summary;
+            n.type_name = issue.fields.issuetype.name;
+            n.labels = issue.fields.labels.sort();
+            if (issue.fields.labels != null) {
+                console.log(`${issue.key} labels : ${issue.fields.labels} ${n.labels}`);
             }
-
-        }
-    }
-
-    let to_remove = [];
-    for (let k in data.output.groups.children) {
-        let issue = data.output.groups.children;
-
-        if (issue.parent_key && issue.parent_key in data.output.groups.children) {
-            add_child(data.output.groups.children[issue.parent_key], issue);
-            to_remove.push(issue.key);
-        }
-    }
-
-    for (let k of to_remove) {
-        delete data.output.groups.children[k];
-    }
-
-
-
-    // add epics
-    for (let k in data.issues) {
-        let issue = data.issues[k];
-
-        if (issue.type_name == 'Epic') {
-            add_parent(data.output.epics, issue);
-
-        } else if (issue.parent_key && issue.parent_type_name == 'Epic') {
-            if (issue.parent_key in data.issues) {
-                let epic = data.issues[issue.parent_key];
-                add_parent(data.output.epics, epic);
-            } else {
-                let p = new Issue(issue.parent_key);
-                p.summary = issue.parent_summary;
-                p.type_name = issue.parent_type_name;
-                p.status    = issue.parent_status;
-                add_parent(data.output.epics, p);
-            }
-
-            add_child(data.output.epics[issue.parent_key], issue);
-            
-        } 
-    }
-    // add orphan stories
-    for (let k in data.issues) {
-        let issue = data.issues[k];
-        if (issue.type_name == 'Epic') continue;
-
-        if (issue.type_name == 'Story' && !issue.parent_key) {
-            add_parent(data.output.stories, issue);
-        } 
-
-    }
-    // add everything else
-    for (let k in data.issues) {
-        let issue = data.issues[k];
-        if (issue.type_name == 'Epic') continue;
-        if (issue.type_name == 'Story' && !issue.parent_key) continue;
-        
-        
-        if (issue.parent_key) {
-
-            if (issue.parent_key in data.output.epics) {
-         
-                add_child(data.output.epics[issue.parent_key], issue);
-
-            } else if (issue.parent_key in data.output.stories) {
-                add_child(data.output.stories[issue.parent_key], issue);
-            } else {
-                let found = false;
-                for (let k0 in data.output.epics) {
-                    let epic = data.output.epics[k0];
-
-                    if (issue.parent_key in epic.children) {
-                        add_child(epic.children[issue.parent_key], issue);
-                        found = true;
-                        break;
+            n.status = issue.fields.status.name;
+            n.release_notes = "";
+            for (let field_name of release_notes_fields) {
+                let v = get_custom_field(issue.fields, field_name);
+                if (v) {
+                    if (!n.release_notes) {
+                        n.release_notes = v;
+                    }
+                    else {
+                        n.release_notes += " " + v;
                     }
                 }
-                if (!found) {
-                    data.output.others[issue.key] = issue;
-                }
-
-                
             }
-
-        } else {
-            add_parent(data.output.others, issue);
+            if (category_field) {
+                n.category = get_custom_field(issue.fields, category_field);
+                if (n.category && !n.labels.includes(n.category)) {
+                    n.labels.push(n.category);
+                    n.labels.sort();
+                }
+            }
+            if ('parent' in issue.fields && issue.fields.parent != null) {
+                n.parent_key = issue.fields.parent.key;
+                n.parent_type_name = issue.fields.parent.fields.issuetype.name;
+                n.parent_summary = issue.fields.parent.fields.summary;
+                n.parent_status = issue.fields.parent.fields.status.name;
+            }
+            if (issue.fields.issuelinks.length > 0) {
+                for (let li of issue.fields.issuelinks) {
+                    if ("outwardIssue" in li) {
+                        n.links.push(li.outwardIssue.key);
+                    }
+                    else if ("inwardIssue" in li) {
+                        n.links.push(li.inwardIssue.key);
+                    }
+                }
+            }
+            data.issues.set(n.key, n);
         }
-
-
-    }
-
-    let output = `\n# ${version_name}    \n`;
-
-    output += "\n > Note that work items may appear more than once in the list below. This is so you can find items relevant to you more easily.";
-    output += "\n > Each work item has a unique code (PD-#### or PDSM-####) so it should be clear where duplication occurs.";
-    output += "\n > PDSM (Service Desk) tickets do not appear in this list in full, only as references from work items.";
-    output += "\n > PD work items represent the actual development work undertaken, where PDSM ticket represent requests or questions from users " +
-             "which are not relevant for release notes.";
-    output += "\n > You can search the release notes using your PDSM ticket reference to find work that relates to your tickets.";
-
-    output += "\n\n\n## Labels / Tags    \n";
-
-    let keys = Object.keys(data.output.groups).sort();
-    for (let ek of keys) {
-        let item = data.output.groups[ek];
-
-        output = add_issue(output, item, 0, 3, false);
-    }
-
-    output += "\n\n## Projects    \n";
-    keys = Object.keys(data.output.epics).sort();
-    for (let ek of keys) {
-        let epic = data.output.epics[ek];
-        //console.log(` epic ${epic.key}`);
-        output = add_issue(output, epic, 0, 2);
-    }
-    output += "\n\n## Work Items    \n";
-    keys = Object.keys(data.output.stories).sort();
-    for (let sk of keys) {
-        let story = data.output.stories[sk];
-        // console.log(` story ${story.key}`);
-        output = add_issue(output, story, 1, 1);        
-       
-    }    
-    keys = Object.keys(data.output.others).sort();
-    for (let sk of keys) {
-        let story = data.output.others[sk];
-        // console.log(` other ${story.key}`);
-        output = add_issue(output, story, 1, 1);   
-    }   
-
-    return output;
+        console.log(`a) issues,groups,epics,stories,others = ${data.issues.size},${data.out_groups.size},${data.out_epics.size},${data.out_stories.size},${data.out_others.size}`);
+        //add categories
+        for (let k of data.issues.keys()) {
+            let issue = data.issues.get(k);
+            if (issue.type_name.toUpperCase() !== "EPIC" && issue.labels.length > 0) {
+                for (let label of issue.labels) {
+                    if (!data.out_groups.has(label)) {
+                        // console.log(`${label} does not appear in the groups map`);
+                        let group = new Issue(label);
+                        add_parent(data.out_groups, group);
+                        add_child(group, issue);
+                    }
+                    else {
+                        // console.log(`${label} does appear in the groups map`);
+                        let group = data.out_groups.get(label);
+                        add_child(group, issue);
+                    }
+                }
+            }
+        }
+        console.log(`b) issues,groups,epics,stories,others = ${data.issues.size},${data.out_groups.size},${data.out_epics.size},${data.out_stories.size},${data.out_others.size}`);
+        for (let k of data.out_groups.keys()) {
+            let group_issue = data.out_groups.get(k);
+            let to_remove = [];
+            for (let ck in group_issue === null || group_issue === void 0 ? void 0 : group_issue.children.keys()) {
+                let child_issue = group_issue.children.get(ck);
+                if (child_issue.parent_key && group_issue.children.has(child_issue.parent_key)) {
+                    let parent = group_issue.children.get(child_issue.parent_key);
+                    add_child(parent, child_issue);
+                    to_remove.push(child_issue.key);
+                }
+            }
+            for (let k of to_remove) {
+                group_issue === null || group_issue === void 0 ? void 0 : group_issue.children.delete(k);
+            }
+        }
+        console.log(`c) issues,groups,epics,stories,others = ${data.issues.size},${data.out_groups.size},${data.out_epics.size},${data.out_stories.size},${data.out_others.size}`);
+        // add epics
+        for (let k of data.issues.keys()) {
+            let issue = data.issues.get(k);
+            if (issue.type_name === 'Epic') {
+                add_parent(data.out_epics, issue);
+            }
+            else if (issue.parent_key && issue.parent_type_name == 'Epic') {
+                //is the epic also in the list of issues?
+                //if so use that
+                if (data.issues.has(issue.parent_key)) {
+                    let epic = data.issues.get(issue.parent_key);
+                    if (epic) {
+                        add_parent(data.out_epics, epic);
+                        add_child(epic, issue);
+                    }
+                }
+                else {
+                    //otherwise, create a dummy epic to attach this issue to
+                    let p = new Issue(issue.parent_key);
+                    p.summary = issue.parent_summary;
+                    p.type_name = issue.parent_type_name;
+                    p.status = issue.parent_status;
+                    add_parent(data.out_epics, p);
+                    let epic = data.out_epics.get(issue.parent_key);
+                    if (epic) {
+                        add_child(epic, issue);
+                    }
+                }
+            }
+        }
+        console.log(`d) issues,groups,epics,stories,others = ${data.issues.size},${data.out_groups.size},${data.out_epics.size},${data.out_stories.size},${data.out_others.size}`);
+        // add orphan stories
+        for (let k of data.issues.keys()) {
+            let issue = data.issues.get(k);
+            if (!issue)
+                continue;
+            if (issue.type_name == 'Epic')
+                continue;
+            if (issue.type_name == 'Story' && !issue.parent_key) {
+                add_parent(data.out_stories, issue);
+            }
+        }
+        console.log(`e) issues,groups,epics,stories,others = ${data.issues.size},${data.out_groups.size},${data.out_epics.size},${data.out_stories.size},${data.out_others.size}`);
+        // add everything else
+        for (let k of data.issues.keys()) {
+            let issue = data.issues.get(k);
+            if (!issue)
+                continue;
+            if (issue.type_name == 'Epic')
+                continue;
+            if (issue.type_name == 'Story' && !issue.parent_key)
+                continue;
+            if (issue.parent_key) {
+                if (data.out_epics.has(issue.parent_key)) {
+                    add_child(data.out_epics.get(issue.parent_key), issue);
+                }
+                else if (data.out_stories.has(issue.parent_key)) {
+                    add_child(data.out_stories.get(issue.parent_key), issue);
+                }
+                else {
+                    let found = false;
+                    for (let k0 of data.out_epics.keys()) {
+                        let epic = data.out_epics.get(k0);
+                        if (epic.children.has(issue.parent_key)) {
+                            add_child(epic.children.get(issue.parent_key), issue);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        data.out_others.set(issue.key, issue);
+                        // data.output.others[issue.key] = issue;
+                    }
+                }
+            }
+            else {
+                add_parent(data.out_others, issue);
+            }
+        }
+        console.log(`f) issues,groups,epics,stories,others = ${data.issues.size},${data.out_groups.size},${data.out_epics.size},${data.out_stories.size},${data.out_others.size}`);
+        let output = `\n# ${version_name}    \n`;
+        output += "\n > Note that work items may appear more than once in the list below. This is so you can find items relevant to you more easily.";
+        output += "\n > Each work item has a unique code (PD-#### or PDSM-####) so it should be clear where duplication occurs.";
+        output += "\n > PDSM (Service Desk) tickets do not appear in this list in full, only as references from work items.";
+        output += "\n > PD work items represent the actual development work undertaken, where PDSM ticket represent requests or questions from users " +
+            "which are not relevant for release notes.";
+        output += "\n > You can search the release notes using your PDSM ticket reference to find work that relates to your tickets.";
+        output += "\n\n\n## Labels / Tags    \n";
+        let keys = Array.from(data.out_groups.keys()).sort(sort_keys);
+        // console.log(keys);
+        for (let ek of keys) {
+            console.log(ek);
+            let item = data.out_groups.get(ek);
+            if (!item)
+                continue;
+            output = add_issue(output, item, 0, 3, false);
+        }
+        output += "\n\n## Projects    \n";
+        keys = Array.from(data.out_epics.keys()).sort(sort_keys);
+        for (let ek of keys) {
+            let epic = data.out_epics.get(ek);
+            //console.log(` epic ${epic.key}`);
+            output = add_issue(output, epic, 0, 2);
+        }
+        output += "\n\n## Work Items    \n";
+        keys = Array.from(data.out_stories.keys()).sort(sort_keys);
+        // keys = Object.keys(data.out_stories).sort();
+        for (let sk of keys) {
+            let story = data.out_stories.get(sk);
+            // console.log(` story ${story.key}`);
+            output = add_issue(output, story, 1, 1);
+        }
+        keys = Array.from(data.out_others.keys()).sort(sort_keys);
+        for (let sk of keys) {
+            let story = data.out_others.get(sk);
+            // console.log(` other ${story.key}`);
+            output = add_issue(output, story, 1, 1);
+        }
+        return output;
+    });
 }
-
-
-
 function add_issue(output, issue, indent, add_children, add_tags = true) {
-
     if (indent == 0) {
         output += "- ```" + issue.key;
         if (issue.summary) {
             output += " : " + issue.summary;
         }
-        output +=  "```";
+        output += "```";
         if (issue.status) {
             output += ` [${issue.status}]`;
         }
         output += "    \n";
-    } else {
+    }
+    else {
         // output = add_indent(output, indent);
         output = add_char(output, indent, ">");
-        output += `- **${issue.key} : ${issue.summary}**`
+        output += `- **${issue.key} : ${issue.summary}**`;
         if (issue.status) {
             output += ` [${issue.status}]`;
-        }        
+        }
         output += '   \n';
     }
-    
     if (issue.release_notes) {
         // output += "\n";
         // output = add_indent(output, indent+1);
-        output = add_char(output, indent+1, ">");
+        output = add_char(output, indent + 1, ">");
         output += ' ' + issue.release_notes + "   \n";
-        
     }
     if (issue.labels.length > 0 && add_tags) {
         // output += "\n";
         // output = add_indent(output, indent+1);
-        output = add_char(output, indent+1, ">");
+        output = add_char(output, indent + 1, ">");
         output += ' [' + issue.labels.join(", ") + ']   \n';
     }
     if (issue.links.length > 0) {
         // output += "\n";
         // output = add_indent(output, indent+1);
-        output = add_char(output, indent+1, ">");
+        output = add_char(output, indent + 1, ">");
         output += ' links: ' + issue.links.join(", ") + "   \n";
-    }      
-
+    }
     if (add_children > 0 && 'children' in issue) {
-        
-        for (let k in issue.children) {
-            
+        for (let k of issue.children.keys()) {
             // output = add_char(output, indent+1, ">");
-            output = add_issue(output, issue.children[k], indent + 1, add_children - 1, add_tags);
+            output = add_issue(output, issue.children.get(k), indent + 1, add_children - 1, add_tags);
         }
-    } else {
-        
+    }
+    else {
     }
     // output += "\n";
     return output;
 }
-
 function add_char(output, count, str) {
     for (let i = 0; i < count; i += 1) {
         output += str;
     }
     return output;
-
 }
-
 function add_indent(output, indent) {
     return add_char(output, indent * 3, " ");
 }
-
-app.get('/get-issues', async (req, res)=> {
-
-    const username   = req.query.username;
-    const password   = req.query.password;
+app.get('/get-issues', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const username = req.query.username;
+    const password = req.query.password;
     const version_id = req.query.version_id;
     const version_name = req.query.version_name;
-
     if (!username || !password || !version_id) {
         res.redirect(302, '/');
         return;
     }
-
-    const results = await get_issues(username, password, version_id, version_name);
+    const results = yield get_issues(username, password, version_id, version_name);
     // res.send('hello');
     res.set('Content-Type', 'text/plain');
     res.status(200).send(results);
+}));
+const server = app.listen(SERVER_PORT, () => {
+    console.log(`server started listening on ${SERVER_PORT}`);
 });
-
-
-const server = app.listen(8000, () => {
-    console.log("server started");
-})
