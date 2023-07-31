@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "undefined/subscriptions/cb604b40-c398-4d1c-969c-b068ef91b52a/resourceGroups/contrivednjstestapp/providers/Microsoft.Web/sites/scorpionhorsejira",
+    "appService.deploySubpath": "."
+}
