@@ -1,13 +1,23 @@
 // const express = require('express');
 import express, {Request, Response} from "express";
-
+const bodyParser = require('body-parser');
 const app = express();
 const axios = require('axios');
 const path = require('path');
 const { release } = require('os');
 const SERVER_PORT = 8000;
 
+let https;
+try {
+  https = require('node:https');
+} catch (err) {
+  console.error('https support is disabled!');
+} 
+
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({extended : false}));
+
 //app.set('views', path.join(__dirname, 'build', 'views'));
 app.set('view engine', 'pug');
 // app.locals.basedir = path.join(__dirname, 'build');
@@ -21,10 +31,10 @@ app.get('/', (req : Request, res : Response) => {
 
 
 
-async function get_versions(username : string , password : string ) {
+async function get_versions(username : string , password : string, project_key : string ) {
     
     try {
-        const response = await axios.get('https://utopia-music.atlassian.net/rest/api/3/project/PD',
+        const response = await axios.get(`https://utopia-music.atlassian.net/rest/api/3/project/${project_key}`,
         {
             
             withCredentials: true,
@@ -47,27 +57,53 @@ async function get_versions(username : string , password : string ) {
     
  }
 
-app.get('/get-versions', async (req : Request, res : Response)=> {
+app.post('/get-versions', async (req : Request, res : Response)=> {
 
-    const username : string = req.query.username as string;
-    const password : string = req.query.password as string;
+    let data = req.body;
+    console.log("request = " + JSON.stringify(data));
+    const username : string = data.username as string;
+    const password : string = data.password as string;
+    const project_key : string = data.project_key as string;
 
-    if (!username || !password) {
+    if (!username || !password || !project_key) {
         res.redirect(302, '/');
         return;
     }
 
-    const results = await get_versions(username, password);
+    const results = await get_versions(username, password,project_key);
     // res.send('hello');
     res.status(200).render(
         'versions', {
             title: 'Versions',
             data: results,
             username,
-            password
+            password,
+            project_key
         }
     );
 });
+
+// app.get('/get-versions', async (req : Request, res : Response)=> {
+
+//     const username : string = req.query.username as string;
+//     const password : string = req.query.password as string;
+
+//     if (!username || !password) {
+//         res.redirect(302, '/');
+//         return;
+//     }
+
+//     const results = await get_versions(username, password);
+//     // res.send('hello');
+//     res.status(200).render(
+//         'versions', {
+//             title: 'Versions',
+//             data: results,
+//             username,
+//             password
+//         }
+//     );
+// });
 
 function get_custom_field(fields : any, field_name : string) {
     
@@ -185,7 +221,7 @@ function split_key(code : string) : { project : string, id : number} {
 }
 
 
-async function get_issues(username : string, password : string , version_id : number, version_name : string) {
+async function get_issues(username : string, password : string , project_key : string, version_id : number, version_name : string) {
     let data : IssueData = new IssueData();
 
     const response = await axios.get(
@@ -198,7 +234,7 @@ async function get_issues(username : string, password : string , version_id : nu
                 password: password,
                 },
             params: {
-                jql: `project = 'PD' AND FixVersion = ${version_id}`,
+                jql: `project = '${project_key}' AND FixVersion = ${version_id}`,
                 expand : "names",
             },
         }
@@ -214,16 +250,17 @@ async function get_issues(username : string, password : string , version_id : nu
     // };
 
     let release_notes_fields : string[] = [];
-    let category_field : string = "";
+    // let category_field : string = "";
     for (let k in response.data.names) {
         let v = response.data.names[k];
 
         if (v.toUpperCase() === "RELEASE NOTES") {
             release_notes_fields.push(k);
             console.log(`release notes: ${v} ${k}`);
-        } else if (v.toUpperCase() === "CATEGORY") {
-            category_field = k;
-        }
+        } 
+        // else if (v.toUpperCase() === "CATEGORY") {
+        //     category_field = k;
+        // }
     }    
 
     for (let issue of response.data.issues) {
@@ -253,15 +290,15 @@ async function get_issues(username : string, password : string , version_id : nu
             }
         }
 
-        if (category_field) {
-            n.category = get_custom_field(issue.fields, category_field);
+        // if (category_field) {
+        //     n.category = get_custom_field(issue.fields, category_field);
 
 
-            if (n.category && !n.labels.includes(n.category)) {
-                n.labels.push(n.category);
-                n.labels.sort();
-            }
-        }
+        //     if (n.category && !n.labels.includes(n.category)) {
+        //         n.labels.push(n.category);
+        //         n.labels.sort();
+        //     }
+        // }
 
 
         if ('parent' in issue.fields && issue.fields.parent != null) {
@@ -445,7 +482,7 @@ async function get_issues(username : string, password : string , version_id : nu
 
     output += "\n\n\n## Labels / Tags    \n";
 
-    let keys = Array.from(data.out_groups.keys()).sort(sort_keys);
+    let keys = Array.from(data.out_groups.keys()).sort();
     // console.log(keys);
     for (let ek of keys) {
         console.log(ek);
@@ -468,14 +505,14 @@ async function get_issues(username : string, password : string , version_id : nu
     for (let sk of keys) {
         let story = data.out_stories.get(sk);
         // console.log(` story ${story.key}`);
-        output = add_issue(output, story!, 1, 1);        
+        output = add_issue(output, story!, 0, 3);        
        
     }    
     keys = Array.from(data.out_others.keys()).sort(sort_keys);
     for (let sk of keys) {
         let story = data.out_others.get(sk);
         // console.log(` other ${story.key}`);
-        output = add_issue(output, story!, 1, 1);   
+        output = add_issue(output, story!, 0, 3);   
     }   
 
     return output;
@@ -525,15 +562,15 @@ function add_issue(output : string , issue : Issue, indent : number ,  add_child
         output += ' links: ' + issue.links.join(", ") + "   \n";
     }      
 
-    if (add_children > 0 && 'children' in issue) {
+    if (add_children > 0 && issue.children.size > 0) {
         
-        for (let k of issue.children.keys()) {
-            
+        let keys = Array.from(issue.children.keys()).sort(sort_keys);
+        for (let k of keys) {
+            let child = issue.children.get(k)!;
             // output = add_char(output, indent+1, ">");
-            output = add_issue(output, issue.children.get(k)!, indent + 1, add_children - 1, add_tags);
+            output = add_issue(output, child, indent + 1, add_children - 1, add_tags);
         }
-    } else {
-        
+
     }
     // output += "\n";
     return output;
@@ -551,19 +588,29 @@ function add_indent(output : string, indent : number) {
     return add_char(output, indent * 3, " ");
 }
 
-app.get('/get-issues', async (req : any, res : any)=> {
+app.post('/get-issues', async (req : any, res : any)=> {
 
-    const username   = req.query.username;
-    const password   = req.query.password;
-    const version_id = req.query.version_id;
-    const version_name = req.query.version_name;
+    let data = req.body;
+    console.log("get-issues request = " + JSON.stringify(data));
+    const username : string = data.username as string;
+    const password : string = data.password as string;
+    const version_id : number = data.version_id as number;
+    const version_name : string = data.version_name as string;
+    const project_key : string = data.project_key as string;
 
-    if (!username || !password || !version_id) {
+    console.log(`
+        username : ${username}
+        password : ${password}
+        version_id : ${version_id}
+        version_name : ${version_name}
+        project_key : ${project_key}
+    `)
+    if (!username || !password || !version_id || !project_key) {
         res.redirect(302, '/');
         return;
     }
 
-    const results = await get_issues(username, password, version_id, version_name);
+    const results = await get_issues(username, password, project_key, version_id, version_name);
     // res.send('hello');
     res.set('Content-Type', 'text/plain');
     res.status(200).send(results);

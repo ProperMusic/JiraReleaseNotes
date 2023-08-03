@@ -2,9 +2,10 @@ extends default
 
 block content
   .home-search
+    include form-get-versions.pug
     //- img(src="/images/hn.png" width="180" height="180")
-    form(action='/get-versions' method='GET')
-      input(autofocus='' placeholder='username' type='text' name='username')
-      input(autofocus='' placeholder='password' type='password' name='password')
-      input(type="submit" name="submit" value="Get Versions") 
+    //- form(action='/get-versions' method='POST')
+    //-   input(autofocus='' placeholder='username' type='text' name='username')
+    //-   input(autofocus='' placeholder='password' type='password' name='password')
+    //-   input(type="submit" name="submit" value="Get Versions") 
       

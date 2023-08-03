@@ -1,0 +1,5 @@
+form(action='/get-versions' method='POST')
+    input(value = `${username || ''}` autofocus='' placeholder='username' type='text' name='username')
+    input(value = `${password || ''}` autofocus='' placeholder='password' type='password' name='password')
+    input(value = `${project_key || ''}` autofocus='' placeholder='project_key' type='text' name='project_key')
+    input(type="submit" name="submit" value="Get Versions") 

@@ -14,12 +14,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 // const express = require('express');
 const express_1 = __importDefault(require("express"));
+const bodyParser = require('body-parser');
 const app = (0, express_1.default)();
 const axios = require('axios');
 const path = require('path');
 const { release } = require('os');
 const SERVER_PORT = 8000;
+let https;
+try {
+    https = require('node:https');
+}
+catch (err) {
+    console.error('https support is disabled!');
+}
 app.use(express_1.default.static(path.join(__dirname, 'public')));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 //app.set('views', path.join(__dirname, 'build', 'views'));
 app.set('view engine', 'pug');
 // app.locals.basedir = path.join(__dirname, 'build');
@@ -29,10 +39,10 @@ app.get('/', (req, res) => {
         title: 'Enter Details'
     });
 });
-function get_versions(username, password) {
+function get_versions(username, password, project_key) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const response = yield axios.get('https://utopia-music.atlassian.net/rest/api/3/project/PD', {
+            const response = yield axios.get(`https://utopia-music.atlassian.net/rest/api/3/project/${project_key}`, {
                 withCredentials: true,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 auth: {
@@ -49,22 +59,44 @@ function get_versions(username, password) {
         }
     });
 }
-app.get('/get-versions', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const username = req.query.username;
-    const password = req.query.password;
-    if (!username || !password) {
+app.post('/get-versions', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    let data = req.body;
+    console.log("request = " + JSON.stringify(data));
+    const username = data.username;
+    const password = data.password;
+    const project_key = data.project_key;
+    if (!username || !password || !project_key) {
         res.redirect(302, '/');
         return;
     }
-    const results = yield get_versions(username, password);
+    const results = yield get_versions(username, password, project_key);
     // res.send('hello');
     res.status(200).render('versions', {
         title: 'Versions',
         data: results,
         username,
-        password
+        password,
+        project_key
     });
 }));
+// app.get('/get-versions', async (req : Request, res : Response)=> {
+//     const username : string = req.query.username as string;
+//     const password : string = req.query.password as string;
+//     if (!username || !password) {
+//         res.redirect(302, '/');
+//         return;
+//     }
+//     const results = await get_versions(username, password);
+//     // res.send('hello');
+//     res.status(200).render(
+//         'versions', {
+//             title: 'Versions',
+//             data: results,
+//             username,
+//             password
+//         }
+//     );
+// });
 function get_custom_field(fields, field_name) {
     if (field_name in fields && fields[field_name] != null) {
         for (let k of fields[field_name].content) {
@@ -152,7 +184,7 @@ function split_key(code) {
     let v = Number(elems[1]);
     return { project: p, id: v };
 }
-function get_issues(username, password, version_id, version_name) {
+function get_issues(username, password, project_key, version_id, version_name) {
     return __awaiter(this, void 0, void 0, function* () {
         let data = new IssueData();
         const response = yield axios.get("https://utopia-music.atlassian.net/rest/api/3/search", {
@@ -163,7 +195,7 @@ function get_issues(username, password, version_id, version_name) {
                 password: password,
             },
             params: {
-                jql: `project = 'PD' AND FixVersion = ${version_id}`,
+                jql: `project = '${project_key}' AND FixVersion = ${version_id}`,
                 expand: "names",
             },
         });
@@ -176,16 +208,16 @@ function get_issues(username, password, version_id, version_name) {
         //     others : {}
         // };
         let release_notes_fields = [];
-        let category_field = "";
+        // let category_field : string = "";
         for (let k in response.data.names) {
             let v = response.data.names[k];
             if (v.toUpperCase() === "RELEASE NOTES") {
                 release_notes_fields.push(k);
                 console.log(`release notes: ${v} ${k}`);
             }
-            else if (v.toUpperCase() === "CATEGORY") {
-                category_field = k;
-            }
+            // else if (v.toUpperCase() === "CATEGORY") {
+            //     category_field = k;
+            // }
         }
         for (let issue of response.data.issues) {
             // console.log(issue);
@@ -193,9 +225,9 @@ function get_issues(username, password, version_id, version_name) {
             n.summary = issue.fields.summary;
             n.type_name = issue.fields.issuetype.name;
             n.labels = issue.fields.labels.sort();
-            if (issue.fields.labels != null) {
-                console.log(`${issue.key} labels : ${issue.fields.labels} ${n.labels}`);
-            }
+            // if (issue.fields.labels != null) {
+            //     console.log(`${issue.key} labels : ${issue.fields.labels} ${n.labels}`);
+            // }
             n.status = issue.fields.status.name;
             n.release_notes = "";
             for (let field_name of release_notes_fields) {
@@ -209,13 +241,13 @@ function get_issues(username, password, version_id, version_name) {
                     }
                 }
             }
-            if (category_field) {
-                n.category = get_custom_field(issue.fields, category_field);
-                if (n.category && !n.labels.includes(n.category)) {
-                    n.labels.push(n.category);
-                    n.labels.sort();
-                }
-            }
+            // if (category_field) {
+            //     n.category = get_custom_field(issue.fields, category_field);
+            //     if (n.category && !n.labels.includes(n.category)) {
+            //         n.labels.push(n.category);
+            //         n.labels.sort();
+            //     }
+            // }
             if ('parent' in issue.fields && issue.fields.parent != null) {
                 n.parent_key = issue.fields.parent.key;
                 n.parent_type_name = issue.fields.parent.fields.issuetype.name;
@@ -359,7 +391,7 @@ function get_issues(username, password, version_id, version_name) {
             "which are not relevant for release notes.";
         output += "\n > You can search the release notes using your PDSM ticket reference to find work that relates to your tickets.";
         output += "\n\n\n## Labels / Tags    \n";
-        let keys = Array.from(data.out_groups.keys()).sort(sort_keys);
+        let keys = Array.from(data.out_groups.keys()).sort();
         // console.log(keys);
         for (let ek of keys) {
             console.log(ek);
@@ -381,13 +413,13 @@ function get_issues(username, password, version_id, version_name) {
         for (let sk of keys) {
             let story = data.out_stories.get(sk);
             // console.log(` story ${story.key}`);
-            output = add_issue(output, story, 1, 1);
+            output = add_issue(output, story, 0, 3);
         }
         keys = Array.from(data.out_others.keys()).sort(sort_keys);
         for (let sk of keys) {
             let story = data.out_others.get(sk);
             // console.log(` other ${story.key}`);
-            output = add_issue(output, story, 1, 1);
+            output = add_issue(output, story, 0, 3);
         }
         return output;
     });
@@ -431,13 +463,13 @@ function add_issue(output, issue, indent, add_children, add_tags = true) {
         output = add_char(output, indent + 1, ">");
         output += ' links: ' + issue.links.join(", ") + "   \n";
     }
-    if (add_children > 0 && 'children' in issue) {
-        for (let k of issue.children.keys()) {
+    if (add_children > 0 && issue.children.size > 0) {
+        let keys = Array.from(issue.children.keys()).sort(sort_keys);
+        for (let k of keys) {
+            let child = issue.children.get(k);
             // output = add_char(output, indent+1, ">");
-            output = add_issue(output, issue.children.get(k), indent + 1, add_children - 1, add_tags);
+            output = add_issue(output, child, indent + 1, add_children - 1, add_tags);
         }
-    }
-    else {
     }
     // output += "\n";
     return output;
@@ -451,16 +483,26 @@ function add_char(output, count, str) {
 function add_indent(output, indent) {
     return add_char(output, indent * 3, " ");
 }
-app.get('/get-issues', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const username = req.query.username;
-    const password = req.query.password;
-    const version_id = req.query.version_id;
-    const version_name = req.query.version_name;
-    if (!username || !password || !version_id) {
+app.post('/get-issues', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    let data = req.body;
+    console.log("get-issues request = " + JSON.stringify(data));
+    const username = data.username;
+    const password = data.password;
+    const version_id = data.version_id;
+    const version_name = data.version_name;
+    const project_key = data.project_key;
+    console.log(`
+        username : ${username}
+        password : ${password}
+        version_id : ${version_id}
+        version_name : ${version_name}
+        project_key : ${project_key}
+    `);
+    if (!username || !password || !version_id || !project_key) {
         res.redirect(302, '/');
         return;
     }
-    const results = yield get_issues(username, password, version_id, version_name);
+    const results = yield get_issues(username, password, project_key, version_id, version_name);
     // res.send('hello');
     res.set('Content-Type', 'text/plain');
     res.status(200).send(results);
