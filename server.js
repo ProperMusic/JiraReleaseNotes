@@ -27,6 +27,11 @@ try {
 catch (err) {
     console.error('https support is disabled!');
 }
+/*
+exclude db alterations
+exclude anything with "NoRelNotes" tag
+
+*/
 app.use(express_1.default.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -221,6 +226,10 @@ function get_issues(username, password, project_key, version_id, version_name) {
         }
         for (let issue of response.data.issues) {
             // console.log(issue);
+            if (issue.fields.labels.includes("NoRelNotes"))
+                continue;
+            if (issue.fields.issuetype.name === "Database Alteration")
+                continue;
             let n = new Issue(issue.key);
             n.summary = issue.fields.summary;
             n.type_name = issue.fields.issuetype.name;

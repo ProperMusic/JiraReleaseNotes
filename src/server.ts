@@ -14,6 +14,7 @@ try {
   console.error('https support is disabled!');
 } 
 
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended : false}));
@@ -123,6 +124,7 @@ function get_custom_field(fields : any, field_name : string) {
     return "";
 }
 type IssueMap  = Map<string, Issue>;
+
 class Issue {
     readonly key : string;
     summary : string =  "";
@@ -267,12 +269,18 @@ async function get_issues(username : string, password : string , project_key : s
 
         // console.log(issue);
 
+        if (issue.fields.labels.includes("NoRelNotes")) continue;
+
+        if (issue.fields.issuetype.name === "Database Alteration") continue;
+
         let n = new Issue(issue.key);
 
 
         n.summary       = issue.fields.summary;
         n.type_name     = issue.fields.issuetype.name;
         n.labels        = issue.fields.labels.sort();
+
+
         // if (issue.fields.labels != null) {
         //     console.log(`${issue.key} labels : ${issue.fields.labels} ${n.labels}`);
         // }
@@ -474,7 +482,8 @@ async function get_issues(username : string, password : string , project_key : s
     let output : string = `\n# ${version_name}    \n`;
 
     output += "\n > Note that work items may appear more than once in the list below. This is so you can find items relevant to you more easily.";
-    output += "\n > Each work item has a unique code (PD-#### or PDSM-####) so it should be clear where duplication occurs.";
+    output += "\n > Each item has a unique code (PD-#### (for development work) or PDSM-#### (for service desk tickets)) so it should be " +
+     "clear where duplication occurs.";
     output += "\n > PDSM (Service Desk) tickets do not appear in this list in full, only as references from work items.";
     output += "\n > PD work items represent the actual development work undertaken, where PDSM ticket represent requests or questions from users " +
              "which are not relevant for release notes.";
@@ -604,7 +613,8 @@ app.post('/get-issues', async (req : any, res : any)=> {
         version_id : ${version_id}
         version_name : ${version_name}
         project_key : ${project_key}
-    `)
+    `);
+
     if (!username || !password || !version_id || !project_key) {
         res.redirect(302, '/');
         return;
