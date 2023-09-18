@@ -27,11 +27,6 @@ try {
 catch (err) {
     console.error('https support is disabled!');
 }
-/*
-exclude db alterations
-exclude anything with "NoRelNotes" tag
-
-*/
 app.use(express_1.default.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -392,9 +387,17 @@ function get_issues(username, password, project_key, version_id, version_name) {
             }
         }
         console.log(`f) issues,groups,epics,stories,others = ${data.issues.size},${data.out_groups.size},${data.out_epics.size},${data.out_stories.size},${data.out_others.size}`);
-        let output = `\n# ${version_name}    \n`;
+        let output = `
+---
+slug: ${version_name.substring(0, 10)}-release-notes
+title: ${version_name.substring(0, 10)} Release Notes
+tags: [release-notes, basil, basil10]
+---
+
+## ${version_name}    \n`;
         output += "\n > Note that work items may appear more than once in the list below. This is so you can find items relevant to you more easily.";
-        output += "\n > Each work item has a unique code (PD-#### or PDSM-####) so it should be clear where duplication occurs.";
+        output += "\n > Each item has a unique code (PD-#### (for development work) or PDSM-#### (for service desk tickets)) so it should be " +
+            "clear where duplication occurs.";
         output += "\n > PDSM (Service Desk) tickets do not appear in this list in full, only as references from work items.";
         output += "\n > PD work items represent the actual development work undertaken, where PDSM ticket represent requests or questions from users " +
             "which are not relevant for release notes.";

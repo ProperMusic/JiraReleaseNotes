@@ -478,8 +478,15 @@ async function get_issues(username : string, password : string , project_key : s
     }
 
     console.log(`f) issues,groups,epics,stories,others = ${data.issues.size},${data.out_groups.size},${data.out_epics.size},${data.out_stories.size},${data.out_others.size}`);
+   
+    let output : string = `
+---
+slug: ${version_name.substring(0,10)}-release-notes
+title: ${version_name.substring(0,10)} Release Notes
+tags: [release-notes, basil, basil10]
+---
 
-    let output : string = `\n# ${version_name}    \n`;
+## ${version_name}    \n`;
 
     output += "\n > Note that work items may appear more than once in the list below. This is so you can find items relevant to you more easily.";
     output += "\n > Each item has a unique code (PD-#### (for development work) or PDSM-#### (for service desk tickets)) so it should be " +
