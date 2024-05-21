@@ -39,10 +39,11 @@ app.get('/', (req, res) => {
         title: 'Enter Details'
     });
 });
+const BASE_URL = "https://propermusic.atlassian.net";
 function get_versions(username, password, project_key) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const response = yield axios.get(`https://utopia-music.atlassian.net/rest/api/3/project/${project_key}`, {
+            const response = yield axios.get(`${BASE_URL}/rest/api/3/project/${project_key}`, {
                 withCredentials: true,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 auth: {
@@ -187,7 +188,7 @@ function split_key(code) {
 function get_issues(username, password, project_key, version_id, version_name) {
     return __awaiter(this, void 0, void 0, function* () {
         let data = new IssueData();
-        const response = yield axios.get("https://utopia-music.atlassian.net/rest/api/3/search", {
+        const response = yield axios.get(`${BASE_URL}/rest/api/3/search`, {
             withCredentials: true,
             headers: { "X-Requested-With": "XMLHttpRequest" },
             auth: {
@@ -387,33 +388,31 @@ function get_issues(username, password, project_key, version_id, version_name) {
             }
         }
         console.log(`f) issues,groups,epics,stories,others = ${data.issues.size},${data.out_groups.size},${data.out_epics.size},${data.out_stories.size},${data.out_others.size}`);
-        let output = `
----
+        let output = `---
 slug: ${version_name.substring(0, 10)}-release-notes
 title: ${version_name.substring(0, 10)} Release Notes
 tags: [release-notes, basil, basil10]
 ---
 
 ## ${version_name}    \n`;
-        output += "\n > Note that work items may appear more than once in the list below. This is so you can find items relevant to you more easily.";
-        output += "\n > Each item has a unique code (PD-#### (for development work) or PDSM-#### (for service desk tickets)) so it should be " +
-            "clear where duplication occurs.";
-        output += "\n > PDSM (Service Desk) tickets do not appear in this list in full, only as references from work items.";
-        output += "\n > PD work items represent the actual development work undertaken, where PDSM ticket represent requests or questions from users " +
-            "which are not relevant for release notes.";
-        output += "\n > You can search the release notes using your PDSM ticket reference to find work that relates to your tickets.";
-        output += "\n\n\n## Labels / Tags    \n";
-        let keys = Array.from(data.out_groups.keys()).sort();
-        // console.log(keys);
-        for (let ek of keys) {
-            console.log(ek);
-            let item = data.out_groups.get(ek);
-            if (!item)
-                continue;
-            output = add_issue(output, item, 0, 3, false);
-        }
+        output += `
+> Note that work items may appear more than once in the list below. This is so you can find items relevant to you more easily.        
+> Each item has a unique code (PD-#### (for development work) or PDSM-#### (for service desk tickets)) so it should be clear where duplication occurs.    
+> PDSM (Service Desk) tickets do not appear in this list in full, only as references from work items.    
+> PD work items represent the actual development work undertaken, whereas PDSM tickets represent requests or questions from users which are not relevant for release notes.    
+> You can search the release notes using your PDSM ticket reference to find work that relates to your tickets    
+`;
+        // output += "\n\n\n## Labels / Tags    \n";
+        // let keys = Array.from(data.out_groups.keys()).sort();
+        // // console.log(keys);
+        // for (let ek of keys) {
+        //     console.log(ek);
+        //     let item = data.out_groups.get(ek);
+        //     if (!item) continue;
+        //     output = add_issue(output, item, 0, 3, false);
+        // }
         output += "\n\n## Projects    \n";
-        keys = Array.from(data.out_epics.keys()).sort(sort_keys);
+        let keys = Array.from(data.out_epics.keys()).sort(sort_keys);
         for (let ek of keys) {
             let epic = data.out_epics.get(ek);
             //console.log(` epic ${epic.key}`);
