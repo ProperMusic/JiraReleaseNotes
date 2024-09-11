@@ -99,18 +99,19 @@ app.post('/get-versions', (req, res) => __awaiter(void 0, void 0, void 0, functi
 //     );
 // });
 function get_custom_field(fields, field_name) {
+    let output = "";
     if (field_name in fields && fields[field_name] != null) {
         for (let k of fields[field_name].content) {
             if (k.type == 'paragraph') {
                 for (let k0 of k.content) {
                     if (k0.type == 'text' && k0.text != '') {
-                        return k0.text;
+                        output += (output.length == 0 ? "" : "    \n    ") + k0.text;
                     }
                 }
             }
         }
     }
-    return "";
+    return output;
 }
 class Issue {
     constructor(_key) {
@@ -234,18 +235,44 @@ function get_issues(username, password, project_key, version_id, version_name) {
             //     console.log(`${issue.key} labels : ${issue.fields.labels} ${n.labels}`);
             // }
             n.status = issue.fields.status.name;
+            // let a : string = get_custom_field(issue.fields, "customfield_10050");
+            // let b : string = get_custom_field(issue.fields, "customfield_10219");
+            let c = get_custom_field(issue.fields, "customfield_10220");
             n.release_notes = "";
-            for (let field_name of release_notes_fields) {
-                let v = get_custom_field(issue.fields, field_name);
-                if (v) {
-                    if (!n.release_notes) {
-                        n.release_notes = v;
-                    }
-                    else {
-                        n.release_notes += " " + v;
-                    }
-                }
+            // if (a != null && a.length > 0) {
+            //     n.release_notes = a;
+            // }
+            // if (b != null && b.length > 0) {
+            //     n.release_notes += (n.release_notes.length == 0 ? "" : "\n") + b;
+            // }
+            if (c != null && c.length > 0) {
+                n.release_notes += (n.release_notes.length == 0 ? "" : "\n") + c;
             }
+            // n.release_notes = issue.fields["customfield_10219"];
+            // console.log(n.release_notes);
+            // let field_name : string = "customfield_10219";
+            // let fields : any = issue.fields;
+            // if (field_name in fields && fields[field_name] != null) {
+            //     for (let k of fields[field_name].content) {
+            //         if (k.type == 'paragraph') {
+            //             for (let k0 of k.content) {
+            //                 if (k0.type == 'text' && k0.text != '') {
+            //                     return k0.text;
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
+            // for (let field_name of release_notes_fields) {
+            //     let v = get_custom_field(issue.fields, field_name);
+            //     if (v) {
+            //         if (!n.release_notes) {
+            //             n.release_notes = v;
+            //         } else {
+            //             n.release_notes += " " + v;
+            //         }
+            //     }
+            // }
             // if (category_field) {
             //     n.category = get_custom_field(issue.fields, category_field);
             //     if (n.category && !n.labels.includes(n.category)) {
@@ -449,8 +476,8 @@ function add_issue(output, issue, indent, add_children, add_tags = true) {
     }
     else {
         // output = add_indent(output, indent);
-        output = add_char(output, indent, ">");
-        output += `- **${issue.key} : ${issue.summary}**`;
+        output = add_char(output, indent, " ");
+        output += "- ```" + `${issue.key} : ${issue.summary}` + "```";
         if (issue.status) {
             output += ` [${issue.status}]`;
         }
@@ -459,19 +486,19 @@ function add_issue(output, issue, indent, add_children, add_tags = true) {
     if (issue.release_notes) {
         // output += "\n";
         // output = add_indent(output, indent+1);
-        output = add_char(output, indent + 1, ">");
+        output = add_char(output, indent + 2, " ");
         output += ' ' + issue.release_notes + "   \n";
     }
     if (issue.labels.length > 0 && add_tags) {
         // output += "\n";
         // output = add_indent(output, indent+1);
-        output = add_char(output, indent + 1, ">");
+        output = add_char(output, indent + 2, " ");
         output += ' [' + issue.labels.join(", ") + ']   \n';
     }
     if (issue.links.length > 0) {
         // output += "\n";
         // output = add_indent(output, indent+1);
-        output = add_char(output, indent + 1, ">");
+        output = add_char(output, indent + 2, " ");
         output += ' links: ' + issue.links.join(", ") + "   \n";
     }
     if (add_children > 0 && issue.children.size > 0) {
@@ -479,7 +506,7 @@ function add_issue(output, issue, indent, add_children, add_tags = true) {
         for (let k of keys) {
             let child = issue.children.get(k);
             // output = add_char(output, indent+1, ">");
-            output = add_issue(output, child, indent + 1, add_children - 1, add_tags);
+            output = add_issue(output, child, indent + 2, add_children - 1, add_tags);
         }
     }
     // output += "\n";
@@ -502,13 +529,13 @@ app.post('/get-issues', (req, res) => __awaiter(void 0, void 0, void 0, function
     const version_id = data.version_id;
     const version_name = data.version_name;
     const project_key = data.project_key;
-    console.log(`
-        username : ${username}
-        password : ${password}
-        version_id : ${version_id}
-        version_name : ${version_name}
-        project_key : ${project_key}
-    `);
+    // console.log(`
+    //     username : ${username}
+    //     password : ${password}
+    //     version_id : ${version_id}
+    //     version_name : ${version_name}
+    //     project_key : ${project_key}
+    // `);
     if (!username || !password || !version_id || !project_key) {
         res.redirect(302, '/');
         return;

@@ -1,11 +1,11 @@
 // const express = require('express');
 import express, {Request, Response} from "express";
-const bodyParser = require('body-parser');
-const app = express();
-const axios = require('axios');
-const path = require('path');
-const { release } = require('os');
-const SERVER_PORT = 8000;
+const bodyParser    = require('body-parser');
+const app           = express();
+const axios         = require('axios');
+const path          = require('path');
+const { release }   = require('os');
+const SERVER_PORT   = 8000;
 
 let https;
 try {
@@ -108,21 +108,21 @@ app.post('/get-versions', async (req : Request, res : Response)=> {
 // });
 
 function get_custom_field(fields : any, field_name : string) {
-    
+    let output : string = "";
     if (field_name in fields && fields[field_name] != null) {
         for (let k of fields[field_name].content) {
             if (k.type == 'paragraph') {
                 for (let k0 of k.content) {
                     if (k0.type == 'text' && k0.text != '') {
-                        return k0.text;
+                        output += (output.length == 0 ? "" : "    \n    ") + k0.text;
                     }
 
                 }
-            }
+            } 
             
         }
     }
-    return "";
+    return output;
 }
 type IssueMap  = Map<string, Issue>;
 
@@ -224,6 +224,7 @@ function split_key(code : string) : { project : string, id : number} {
 }
 
 
+
 async function get_issues(username : string, password : string , project_key : string, version_id : number, version_name : string) {
     let data : IssueData = new IssueData();
 
@@ -287,17 +288,56 @@ async function get_issues(username : string, password : string , project_key : s
         // }
         n.status        = issue.fields.status.name;
 
+        // let a : string = get_custom_field(issue.fields, "customfield_10050");
+        // let b : string = get_custom_field(issue.fields, "customfield_10219");
+        let c : string = get_custom_field(issue.fields, "customfield_10220");
         n.release_notes = "";
-        for (let field_name of release_notes_fields) {
-            let v = get_custom_field(issue.fields, field_name);
-            if (v) {
-                if (!n.release_notes) {
-                    n.release_notes = v;
-                } else {
-                    n.release_notes += " " + v;
-                }
-            }
+
+        // if (a != null && a.length > 0) {
+        //     n.release_notes = a;
+        // }
+
+        // if (b != null && b.length > 0) {
+        //     n.release_notes += (n.release_notes.length == 0 ? "" : "\n") + b;
+        // }
+
+        if (c != null && c.length > 0) {
+            n.release_notes += (n.release_notes.length == 0 ? "" : "\n") + c;
         }
+
+
+
+        // n.release_notes = issue.fields["customfield_10219"];
+        // console.log(n.release_notes);
+
+        // let field_name : string = "customfield_10219";
+        // let fields : any = issue.fields;
+
+        // if (field_name in fields && fields[field_name] != null) {
+        //     for (let k of fields[field_name].content) {
+        //         if (k.type == 'paragraph') {
+        //             for (let k0 of k.content) {
+        //                 if (k0.type == 'text' && k0.text != '') {
+        //                     return k0.text;
+        //                 }
+    
+        //             }
+        //         }
+                
+        //     }
+        // }
+
+  
+        // for (let field_name of release_notes_fields) {
+        //     let v = get_custom_field(issue.fields, field_name);
+        //     if (v) {
+        //         if (!n.release_notes) {
+        //             n.release_notes = v;
+        //         } else {
+        //             n.release_notes += " " + v;
+        //         }
+        //     }
+        // }
 
         // if (category_field) {
         //     n.category = get_custom_field(issue.fields, category_field);
@@ -550,8 +590,8 @@ function add_issue(output : string , issue : Issue, indent : number ,  add_child
         output += "    \n";
     } else {
         // output = add_indent(output, indent);
-        output = add_char(output, indent, ">");
-        output += `- **${issue.key} : ${issue.summary}**`
+        output = add_char(output, indent, " ");
+        output += "- ```" + `${issue.key} : ${issue.summary}` + "```";
         if (issue.status) {
             output += ` [${issue.status}]`;
         }        
@@ -561,20 +601,20 @@ function add_issue(output : string , issue : Issue, indent : number ,  add_child
     if (issue.release_notes) {
         // output += "\n";
         // output = add_indent(output, indent+1);
-        output = add_char(output, indent+1, ">");
+        output = add_char(output, indent+2, " ");
         output += ' ' + issue.release_notes + "   \n";
         
     }
     if (issue.labels.length > 0 && add_tags) {
         // output += "\n";
         // output = add_indent(output, indent+1);
-        output = add_char(output, indent+1, ">");
+        output = add_char(output, indent+2, " ");
         output += ' [' + issue.labels.join(", ") + ']   \n';
     }
     if (issue.links.length > 0) {
         // output += "\n";
         // output = add_indent(output, indent+1);
-        output = add_char(output, indent+1, ">");
+        output = add_char(output, indent+2, " ");
         output += ' links: ' + issue.links.join(", ") + "   \n";
     }      
 
@@ -584,7 +624,7 @@ function add_issue(output : string , issue : Issue, indent : number ,  add_child
         for (let k of keys) {
             let child = issue.children.get(k)!;
             // output = add_char(output, indent+1, ">");
-            output = add_issue(output, child, indent + 1, add_children - 1, add_tags);
+            output = add_issue(output, child, indent + 2, add_children - 1, add_tags);
         }
 
     }
@@ -614,13 +654,13 @@ app.post('/get-issues', async (req : any, res : any)=> {
     const version_name : string = data.version_name as string;
     const project_key : string = data.project_key as string;
 
-    console.log(`
-        username : ${username}
-        password : ${password}
-        version_id : ${version_id}
-        version_name : ${version_name}
-        project_key : ${project_key}
-    `);
+    // console.log(`
+    //     username : ${username}
+    //     password : ${password}
+    //     version_id : ${version_id}
+    //     version_name : ${version_name}
+    //     project_key : ${project_key}
+    // `);
 
     if (!username || !password || !version_id || !project_key) {
         res.redirect(302, '/');
